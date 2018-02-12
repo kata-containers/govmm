@@ -646,6 +646,458 @@ const (
 	QCOW2 BlockDeviceFormat = "qcow2"
 )
 
+// HardDiskGeometry forces hard disk 0 physical geometry.
+type HardDiskGeometry struct {
+	// Cyls are the cylinders.
+	// Value: 1 <= Cyls <= HardDiskCylindersMax.
+	Cyls uint16
+
+	// Heads are the heads.
+	// Value: 1 <= Heads <= HardDiskHeadsMax.
+	Heads uint8
+
+	// Secs are the sectors.
+	// Value: 1 <= Secs <= HardDiskSectorsMax.
+	Secs uint8
+
+	// Trans forces the BIOS translation mode, this option is optional.
+	// Values: none, lba, auto.
+	Trans HardDiskTranslationMode
+}
+
+// HardDiskTranslationMode hard disk translation modes.
+type HardDiskTranslationMode string
+
+const (
+	// HardDiskTranslationAuto auto translation mode.
+	HardDiskTranslationAuto HardDiskTranslationMode = "auto"
+
+	// HardDiskTranslationNone none translation mode.
+	HardDiskTranslationNone HardDiskTranslationMode = "none"
+
+	// HardDiskTranslationLba lba translation mode.
+	HardDiskTranslationLba HardDiskTranslationMode = "lba"
+)
+
+const (
+	// HardDiskCylindersMax max number of cylinders.
+	HardDiskCylindersMax uint16 = 16383
+
+	// HardDiskHeadsMax max number of heads.
+	HardDiskHeadsMax uint8 = 16
+
+	// HardDiskSectorsMax max number of sectors.
+	HardDiskSectorsMax uint8 = 63
+)
+
+// Valid returns true if the hard disk geometry is valid, else false.
+func (h *HardDiskGeometry) Valid() bool {
+	if h.Cyls < 1 || h.Cyls > HardDiskCylindersMax {
+		return false
+	}
+
+	if h.Heads < 1 || h.Heads > HardDiskHeadsMax {
+		return false
+	}
+
+	if h.Secs < 1 || h.Secs > HardDiskSectorsMax {
+		return false
+	}
+
+	if h.Trans != "" {
+		switch h.Trans {
+		case HardDiskTranslationAuto, HardDiskTranslationLba, HardDiskTranslationNone:
+			break
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+// DriveConnection defines where is connected the drive.
+type DriveConnection struct {
+	// Bus where the drive is connected
+	// this option is mandatory.
+	Bus string
+
+	// Unit id where the drive is connected
+	// this option is mandatory.
+	Unit uint
+}
+
+// DriveRWErrors specifies which action to take on write and read errors.
+type DriveRWErrors struct {
+	// Werror specifies which action to take on write errors.
+	// Available values are: ignore, stop, report, enospc
+	// this option is mandatory.
+	Werror DriveRWErrorsAction
+
+	// Rerror specifies which action to take on read errors.
+	// Available values are: ignore, stop, report, enospc
+	// this option is mandatory.
+	Rerror DriveRWErrorsAction
+}
+
+// DriveRWErrorsAction is action to take on rw errors.
+type DriveRWErrorsAction string
+
+const (
+	// DriveRWErrorsIgnore ignores the error.
+	DriveRWErrorsIgnore DriveRWErrorsAction = "ignore"
+
+	// DriveRWErrorsStop stops Qemu.
+	DriveRWErrorsStop DriveRWErrorsAction = "stop"
+
+	// DriveRWErrorsReport reports the error.
+	DriveRWErrorsReport DriveRWErrorsAction = "report"
+
+	// DriveRWErrorsEnospc pauses Qemu only if the host disk is full.
+	DriveRWErrorsEnospc DriveRWErrorsAction = "enospc"
+)
+
+// Valid returns true if the drive rw error is valid, else false.
+func (d *DriveRWErrors) Valid() bool {
+	switch d.Werror {
+	case DriveRWErrorsIgnore, DriveRWErrorsStop, DriveRWErrorsReport, DriveRWErrorsEnospc:
+		break
+	default:
+		return false
+	}
+
+	switch d.Rerror {
+	case DriveRWErrorsIgnore, DriveRWErrorsStop, DriveRWErrorsReport, DriveRWErrorsEnospc:
+		break
+	default:
+		return false
+	}
+
+	return true
+}
+
+// Drive represents a qemu drive.
+type Drive struct {
+	// File defines which disk image to use with this drive.
+	// This option is mandatory.
+	File string
+
+	// If defines on which type on interface the drive is connected.
+	// Available types are: ide, scsi, sd, mtd, floppy, pflash, virtio.
+	// This option is optional.
+	If DriveInterface
+
+	// Connection defines where is connected the drive
+	// This option is optional.
+	Connection *DriveConnection
+
+	// Index defines where is connected the drive by using an index
+	// in the list of available connectors of a given interface type.
+	// This option is optional.
+	Index string
+
+	// Media defines the type of the media.
+	// Available types are: disk, cdrom.
+	// This option is optional.
+	Media DriveMedia
+
+	// Geometry forces hard disk 0 physical geometry.
+	// This option is optional.
+	Geometry *HardDiskGeometry
+
+	// Snapshot controls snapshot mode for the given drive.
+	// Available values are: on, off.
+	// This option is optional.
+	Snapshot DriveState
+
+	// Cache controls how the host cache is used to access block data.
+	// Available types are: none, writeback, unsafe, directsync, writethrough.
+	// This option is optional.
+	Cache DriveCacheMode
+
+	// AIO selects between pthread based disk I/O and native Linux AIO
+	// Available types are: threads, native
+	// this option is optional
+	AIO DriveAIO
+
+	// Discard controls whether discard requests are ignored or passed to the filesystem.
+	// Available values are: ignore, off, unmap, on.
+	// This option is optional.
+	Discard DriveState
+
+	// Format specifies which disk format will be used rather than detecting the format.
+	// This option is optional.
+	Format string
+
+	// Serial specifies the serial number to assign to the device.
+	// This option is optional.
+	Serial string
+
+	// Addr specifies the controller's PCI address (if=virtio only).
+	// This option is optional.
+	Addr string
+
+	// Errors specifies which action to take on write and read errors
+	// this option is optional
+	Errors *DriveRWErrors
+
+	// Readonly opens drive file as read-only.
+	// Available values are: on, off.
+	// This option is optional.
+	Readonly DriveState
+
+	// CopyOnRead enables whether to copy read backing file sectors into the image file
+	// Available values are: on, off.
+	// This option is optional.
+	CopyOnRead DriveState
+
+	// DetectZeroes enables the automatic conversion of plain zero writes by the OS to driver specific optimized zero write.
+	// Available values are: off, on, unmap.
+	// This option is optional.
+	DetectZeroes DriveState
+}
+
+// DriveInterface specifies the interface where the drive is connected.
+type DriveInterface string
+
+const (
+	// DriveIde ide interface.
+	DriveIde DriveInterface = "ide"
+
+	// DriveScsi scsie interface.
+	DriveScsi DriveInterface = "scsi"
+
+	// DriveSd sd interface.
+	DriveSd DriveInterface = "sd"
+
+	// DriveMtd mtd interface.
+	DriveMtd DriveInterface = "mtd"
+
+	// DriveFloppy floppy interface.
+	DriveFloppy DriveInterface = "floppy"
+
+	// DrivePflash pflash interface.
+	DrivePflash DriveInterface = "pflash"
+
+	// DriveVirtio virtio interface.
+	DriveVirtio DriveInterface = "virtio"
+)
+
+// DriveMedia specifies the drive media.
+type DriveMedia string
+
+const (
+	// DriveCdrom cdrom media.
+	DriveCdrom DriveMedia = "cdrom"
+
+	// DriveDisk disk media.
+	DriveDisk DriveMedia = "disk"
+)
+
+// DriveCacheMode specifies the cache mode.
+type DriveCacheMode string
+
+const (
+	// DriveCacheNone none cache.
+	DriveCacheNone DriveCacheMode = "none"
+
+	// DriveCacheWriteback writeback cache.
+	DriveCacheWriteback DriveCacheMode = "writeback"
+
+	// DriveCacheUnsafe unsafe cache.
+	DriveCacheUnsafe DriveCacheMode = "unsafe"
+
+	// DriveCacheDirectsync directsync cache.
+	DriveCacheDirectsync DriveCacheMode = "directsync"
+
+	// DriveCacheWritethrough writethrough cache.
+	DriveCacheWritethrough DriveCacheMode = "writethrough"
+)
+
+// DriveAIO specifies the Kernel Asynchronous I/O.
+type DriveAIO string
+
+const (
+	// DriveAIOThreads pthread based disk I/O.
+	DriveAIOThreads DriveAIO = "threads"
+
+	// DriveAIONative native linux AIO.
+	DriveAIONative DriveAIO = "native"
+)
+
+// DriveState specifies the state for a drive feature.
+type DriveState string
+
+const (
+	// DriveStateOff disable a drive feature.
+	DriveStateOff DriveState = "off"
+
+	// DriveStateOn enable a drive feature.
+	DriveStateOn DriveState = "on"
+
+	// DriveStateUnmap same as on.
+	DriveStateUnmap DriveState = "unmap"
+
+	// DriveStateIgnore same as off.
+	DriveStateIgnore DriveState = "ignore"
+)
+
+func (drive Drive) validDriveStates() bool {
+	switch drive.Readonly {
+	case "", DriveStateOff, DriveStateOn:
+	default:
+		return false
+	}
+
+	switch drive.CopyOnRead {
+	case "", DriveStateOff, DriveStateOn:
+	default:
+		return false
+	}
+
+	switch drive.DetectZeroes {
+	case "", DriveStateOff, DriveStateOn, DriveStateUnmap:
+	default:
+		return false
+	}
+
+	switch drive.Snapshot {
+	case "", DriveStateOff, DriveStateOn:
+	default:
+		return false
+	}
+
+	switch drive.Discard {
+	case "", DriveStateIgnore, DriveStateOff, DriveStateUnmap, DriveStateOn:
+	default:
+		return false
+	}
+
+	return true
+}
+
+func (drive Drive) validDriveConfigs() bool {
+	switch drive.If {
+	case "", DriveIde, DriveScsi, DriveSd, DriveMtd, DriveFloppy, DrivePflash, DriveVirtio:
+	default:
+		return false
+	}
+
+	switch drive.Media {
+	case "", DriveDisk, DriveCdrom:
+	default:
+		return false
+	}
+
+	switch drive.Cache {
+	case "", DriveCacheNone, DriveCacheWriteback, DriveCacheUnsafe, DriveCacheDirectsync, DriveCacheWritethrough:
+	default:
+		return false
+	}
+
+	switch drive.AIO {
+	case "", DriveAIOThreads, DriveAIONative:
+	default:
+		return false
+	}
+
+	return true
+}
+
+// Valid returns true if the Drive structure is valid and complete.
+func (drive Drive) Valid() bool {
+	if drive.File == "" {
+		return false
+	}
+
+	if drive.Index != "" {
+		if _, err := strconv.ParseUint(drive.Index, 10, 32); err != nil {
+			return false
+		}
+	}
+
+	if drive.Addr != "" {
+		if drive.If != DriveVirtio {
+			return false
+		}
+	}
+
+	if drive.Connection != nil {
+		if drive.Connection.Bus == "" {
+			return false
+		}
+	}
+
+	if drive.Geometry != nil {
+		if !drive.Geometry.Valid() {
+			return false
+		}
+	}
+
+	if drive.Errors != nil {
+		if !drive.Errors.Valid() {
+			return false
+		}
+	}
+
+	return drive.validDriveConfigs() && drive.validDriveStates()
+}
+
+func appendDriveStringParam(params []string, format string, value interface{}) []string {
+	if value != "" {
+		params = append(params, fmt.Sprintf(format, value))
+	}
+	return params
+}
+
+// QemuParams returns the qemu parameters built out of this drive.
+func (drive Drive) QemuParams(config *Config) []string {
+	var qemuParams []string
+	var driveParams []string
+
+	driveParams = appendDriveStringParam(driveParams, "file=%s", drive.File)
+	driveParams = appendDriveStringParam(driveParams, ",if=%s", drive.If)
+
+	if drive.Connection != nil {
+		driveParams = append(driveParams, fmt.Sprintf(",bus=%s,unit=%d", drive.Connection.Bus, drive.Connection.Unit))
+	}
+
+	driveParams = appendDriveStringParam(driveParams, ",index=%s", drive.Index)
+	driveParams = appendDriveStringParam(driveParams, ",media=%s", drive.Media)
+
+	if drive.Geometry != nil {
+		driveParams = append(driveParams, fmt.Sprintf(",cyls=%d,heads=%d,secs=%d",
+			drive.Geometry.Cyls, drive.Geometry.Heads, drive.Geometry.Secs))
+		if drive.Geometry.Trans != "" {
+			driveParams = append(driveParams, fmt.Sprintf(",trans=%s", drive.Geometry.Trans))
+		}
+	}
+
+	driveParams = appendDriveStringParam(driveParams, ",snapshot=%s", drive.Snapshot)
+	driveParams = appendDriveStringParam(driveParams, ",cache=%s", drive.Cache)
+	driveParams = appendDriveStringParam(driveParams, ",aio=%s", drive.AIO)
+	driveParams = appendDriveStringParam(driveParams, ",discard=%s", drive.Discard)
+	driveParams = appendDriveStringParam(driveParams, ",format=%s", drive.Format)
+	driveParams = appendDriveStringParam(driveParams, ",serial=%s", drive.Serial)
+	driveParams = appendDriveStringParam(driveParams, ",addr=%s", drive.Addr)
+
+	if drive.Errors != nil {
+		driveParams = append(driveParams, fmt.Sprintf(",werror=%s,rerror=%s", drive.Errors.Werror, drive.Errors.Rerror))
+	}
+
+	if drive.Readonly == DriveStateOn {
+		driveParams = append(driveParams, fmt.Sprintf(",readonly"))
+	}
+
+	driveParams = appendDriveStringParam(driveParams, ",copy-on-read=%s", drive.CopyOnRead)
+	driveParams = appendDriveStringParam(driveParams, ",detect-zeroes=%s", drive.DetectZeroes)
+
+	qemuParams = append(qemuParams, "-drive")
+	qemuParams = append(qemuParams, strings.Join(driveParams, ""))
+
+	return qemuParams
+}
+
 // BlockDevice represents a qemu block device.
 type BlockDevice struct {
 	Driver    DeviceDriver
