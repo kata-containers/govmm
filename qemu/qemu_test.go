@@ -67,6 +67,10 @@ func testAppend(structure interface{}, expected string, t *testing.T) {
 	case RTC:
 		config.RTC = s
 		config.appendRTC()
+
+	case Drive:
+		config.Devices = []Device{s}
+		config.appendDevices()
 	}
 
 	result := strings.Join(config.qemuParams, " ")
@@ -522,4 +526,162 @@ func TestAppendRTC(t *testing.T) {
 	}
 
 	testAppend(rtc, rtcString, t)
+}
+
+var driveString = "-drive file=file,if=virtio,bus=1,unit=1,index=1,media=cdrom,cyls=16383,heads=16,secs=63,trans=auto,snapshot=off,cache=none,aio=native,discard=ignore,format=raw,serial=1,addr=0x1,werror=report,rerror=stop,readonly,copy-on-read=off,detect-zeroes=unmap"
+
+func TestAppendDrive(t *testing.T) {
+	drive := Drive{
+		File: "file",
+		If:   DriveVirtio,
+		Connection: &DriveConnection{
+			Bus:  "1",
+			Unit: 1,
+		},
+		Index: "1",
+		Media: DriveCdrom,
+		Geometry: &HardDiskGeometry{
+			Cyls:  HardDiskCylindersMax,
+			Heads: HardDiskHeadsMax,
+			Secs:  HardDiskSectorsMax,
+			Trans: HardDiskTranslationAuto,
+		},
+		Snapshot: DriveStateOff,
+		Cache:    DriveCacheNone,
+		AIO:      DriveAIONative,
+		Discard:  DriveStateIgnore,
+		Format:   "raw",
+		Serial:   "1",
+		Addr:     "0x1",
+		Errors: &DriveRWErrors{
+			Werror: DriveRWErrorsReport,
+			Rerror: DriveRWErrorsStop,
+		},
+		Readonly:     DriveStateOn,
+		CopyOnRead:   DriveStateOff,
+		DetectZeroes: DriveStateUnmap,
+	}
+
+	testAppend(drive, driveString, t)
+}
+
+func testValidDrive(d Drive, valid bool, t *testing.T) {
+	isValid := d.Valid()
+	if valid && !isValid {
+		t.Fatalf("drive '%+v' should be valid", d)
+	}
+	if !valid && isValid {
+		t.Fatalf("drive '%+v' should not be valid", d)
+	}
+}
+
+func TestValidDrive(t *testing.T) {
+	drive := Drive{
+		File: "file",
+		If:   DriveVirtio,
+		Connection: &DriveConnection{
+			Bus:  "1",
+			Unit: 1,
+		},
+		Index: "1",
+		Media: DriveCdrom,
+		Geometry: &HardDiskGeometry{
+			Cyls:  HardDiskCylindersMax,
+			Heads: HardDiskHeadsMax,
+			Secs:  HardDiskSectorsMax,
+			Trans: HardDiskTranslationAuto,
+		},
+		Snapshot: DriveStateOff,
+		Cache:    DriveCacheNone,
+		AIO:      DriveAIONative,
+		Discard:  DriveStateIgnore,
+		Format:   "raw",
+		Serial:   "1",
+		Addr:     "0x1",
+		Errors: &DriveRWErrors{
+			Werror: DriveRWErrorsReport,
+			Rerror: DriveRWErrorsStop,
+		},
+		Readonly:     DriveStateOn,
+		CopyOnRead:   DriveStateOff,
+		DetectZeroes: DriveStateUnmap,
+	}
+
+	testValidDrive(drive, true, t)
+
+	drive.File = ""
+	testValidDrive(drive, false, t)
+
+	drive.File = "file"
+	drive.If = DriveScsi + DriveVirtio
+	testValidDrive(drive, false, t)
+
+	drive.If = DriveScsi
+	drive.Connection.Bus = ""
+	testValidDrive(drive, false, t)
+
+	drive.Connection.Bus = "1"
+	drive.Index = "string"
+	testValidDrive(drive, false, t)
+
+	drive.Index = "1"
+	drive.Media = DriveDisk + DriveCdrom
+	testValidDrive(drive, false, t)
+
+	drive.Media = DriveDisk
+	drive.Geometry.Cyls = HardDiskCylindersMax + 1
+	testValidDrive(drive, false, t)
+
+	drive.Geometry.Cyls = HardDiskCylindersMax
+	drive.Geometry.Heads = HardDiskHeadsMax + 1
+	testValidDrive(drive, false, t)
+
+	drive.Geometry.Heads = HardDiskHeadsMax
+	drive.Geometry.Secs = HardDiskSectorsMax + 1
+	testValidDrive(drive, false, t)
+
+	drive.Geometry.Secs = HardDiskSectorsMax
+	drive.Geometry.Trans = HardDiskTranslationAuto + HardDiskTranslationNone
+	testValidDrive(drive, false, t)
+
+	drive.Geometry.Trans = HardDiskTranslationAuto
+	drive.Snapshot = DriveStateOff + DriveStateOn
+	testValidDrive(drive, false, t)
+
+	drive.Snapshot = DriveStateOff
+	drive.Cache = DriveCacheDirectsync + DriveCacheUnsafe
+	testValidDrive(drive, false, t)
+
+	drive.Cache = DriveCacheDirectsync
+	drive.AIO = DriveAIOThreads + DriveAIONative
+	testValidDrive(drive, false, t)
+
+	drive.AIO = DriveAIOThreads
+	drive.Discard = DriveStateIgnore + DriveStateOff
+	testValidDrive(drive, false, t)
+
+	drive.Discard = DriveStateIgnore
+	drive.Addr = "0x1"
+	drive.If = DriveIde
+	testValidDrive(drive, false, t)
+
+	drive.If = DriveVirtio
+	drive.Errors.Rerror = DriveRWErrorsIgnore + DriveRWErrorsReport
+	testValidDrive(drive, false, t)
+
+	drive.Errors.Rerror = DriveRWErrorsReport
+	drive.Errors.Werror = DriveRWErrorsIgnore + DriveRWErrorsReport
+	testValidDrive(drive, false, t)
+
+	drive.Errors.Werror = DriveRWErrorsIgnore
+	drive.Readonly = DriveStateIgnore
+	testValidDrive(drive, false, t)
+
+	drive.Readonly = DriveStateOff
+	drive.CopyOnRead = DriveStateIgnore
+	testValidDrive(drive, false, t)
+
+	drive.CopyOnRead = DriveStateOff
+	drive.DetectZeroes = DriveStateIgnore
+	testValidDrive(drive, false, t)
 }
