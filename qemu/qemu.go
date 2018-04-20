@@ -1140,6 +1140,25 @@ type Kernel struct {
 	Params string
 }
 
+// MigrateIncoming specifies the migration incoming URI
+type MigrateIncoming struct {
+	// URI (Uniform Resource Identifier) identifying the source or
+	// address to listen on
+	//
+	// tcp:[host]:port[,to=maxport][,ipv4][,ipv6]
+	// rdma:host:port[,ipv4][,ipv6]
+	// unix:socketpath
+	//          prepare for incoming migration, listen on
+	//          specified protocol and socket address
+	// fd:fd
+	// exec:cmdline
+	//          accept incoming migration on given file descriptor
+	//          or from given external command
+	// defer
+	//          wait for the URI to be specified via qmp migrate_incoming
+	URI string
+}
+
 // Knobs regroups a set of qemu boolean settings
 type Knobs struct {
 	// NoUserConfig prevents qemu from loading user config files.
@@ -1230,6 +1249,9 @@ type Config struct {
 
 	// Bios is the -bios parameter
 	Bios string
+
+	// Incoming is the -incoming parameter
+	Incoming MigrateIncoming
 
 	// fds is a list of open file descriptors to be passed to the spawned qemu process
 	fds []*os.File
@@ -1504,6 +1526,22 @@ func (config *Config) appendBios() {
 	}
 }
 
+func (config *Config) appendMigrateIncoming() {
+	if config.Incoming.URI != "" {
+		var proto string
+		var fd int
+		uri := config.Incoming.URI
+		n, err := fmt.Sscanf(uri, "%s:%d", &proto, &fd)
+		if err == nil && n == 2 && proto == "fd" && fd > 2 {
+			chFDs := config.appendFDs([]*os.File{os.NewFile(uintptr(fd), "fd incoming")})
+			uri = fmt.Sprintf("fd:%d", chFDs[0])
+		}
+
+		config.qemuParams = append(config.qemuParams, "-incoming")
+		config.qemuParams = append(config.qemuParams, uri)
+	}
+}
+
 func (config *Config) appendIOThreads() {
 	for _, t := range config.IOThreads {
 		if t.ID != "" {
@@ -1536,6 +1574,7 @@ func LaunchQemu(config Config, logger QMPLog) (string, error) {
 	config.appendKnobs()
 	config.appendKernel()
 	config.appendBios()
+	config.appendMigrateIncoming()
 	config.appendIOThreads()
 
 	if err := config.appendCPUs(); err != nil {
