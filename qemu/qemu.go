@@ -1127,6 +1127,14 @@ type Memory struct {
 	// to the guest through e.g. hot pluggable memory.
 	MaxMem string
 
+	// MemPath is the memory file object's path.
+	MemPath string
+
+	// Share determines whether the memory region is marked
+	// as private to QEMU, or shared. The latter allows
+	// a co-operating external process to access the QEMU memory region.
+	Share bool
+
 	// Both HugePages and MemPrealloc require the Memory.Size of the VM
 	// to be set, as they need to reserve the memory upfront in order
 	// for the VM to boot without errors.
@@ -1365,15 +1373,26 @@ func (config *Config) appendMemory() {
 
 		hugePages := config.Memory.HugePages || config.Knobs.HugePages
 		memPrealloc := config.Memory.MemPrealloc || config.Knobs.MemPrealloc || hugePages
+		share := config.Memory.Share || hugePages
 
-		if hugePages {
+		memPath := config.Memory.MemPath
+		if memPath == "" && hugePages {
+			memPath = "/dev/hugepages"
+		}
+
+		if memPath != "" {
 			dimmName := "dimm1"
-			objMemParam := "memory-backend-file,id=" + dimmName + ",size=" + config.Memory.Size + ",mem-path=/dev/hugepages,share=on,prealloc=on"
-			numaMemParam := "node,memdev=" + dimmName
-
+			objMemParam := "memory-backend-file,id=" + dimmName + ",size=" + config.Memory.Size + ",mem-path=" + memPath
+			if share {
+				objMemParam = objMemParam + ",share=on"
+			}
+			if memPrealloc {
+				objMemParam = objMemParam + ",prealloc=on"
+			}
 			config.qemuParams = append(config.qemuParams, "-object")
 			config.qemuParams = append(config.qemuParams, objMemParam)
 
+			numaMemParam := "node,memdev=" + dimmName
 			config.qemuParams = append(config.qemuParams, "-numa")
 			config.qemuParams = append(config.qemuParams, numaMemParam)
 		} else if memPrealloc {
