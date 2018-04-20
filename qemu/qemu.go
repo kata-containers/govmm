@@ -1126,6 +1126,19 @@ type Memory struct {
 	// MaxMem is the maximum amount of memory that can be made available
 	// to the guest through e.g. hot pluggable memory.
 	MaxMem string
+
+	// Both HugePages and MemPrealloc require the Memory.Size of the VM
+	// to be set, as they need to reserve the memory upfront in order
+	// for the VM to boot without errors.
+	//
+	// HugePages always results in memory pre-allocation.
+	// However the setup is different from normal pre-allocation.
+	// Hence HugePages has precedence over MemPrealloc
+	// HugePages will pre-allocate all the RAM from huge pages
+	HugePages bool
+
+	// MemPrealloc will allocate all the RAM upfront
+	MemPrealloc bool
 }
 
 // Kernel is the guest kernel configuration structure.
@@ -1162,9 +1175,13 @@ type Knobs struct {
 	// However the setup is different from normal pre-allocation.
 	// Hence HugePages has precedence over MemPrealloc
 	// HugePages will pre-allocate all the RAM from huge pages
+	//
+	// Deprecated (use Memory.HugePages instead)
 	HugePages bool
 
 	// MemPrealloc will allocate all the RAM upfront
+	//
+	// Deprecated (use Memory.MemPrealloc instead)
 	MemPrealloc bool
 
 	// Mlock will control locking of memory
@@ -1345,6 +1362,31 @@ func (config *Config) appendMemory() {
 
 		config.qemuParams = append(config.qemuParams, "-m")
 		config.qemuParams = append(config.qemuParams, strings.Join(memoryParams, ""))
+
+		hugePages := config.Memory.HugePages || config.Knobs.HugePages
+		memPrealloc := config.Memory.MemPrealloc || config.Knobs.MemPrealloc || hugePages
+
+		if hugePages {
+			dimmName := "dimm1"
+			objMemParam := "memory-backend-file,id=" + dimmName + ",size=" + config.Memory.Size + ",mem-path=/dev/hugepages,share=on,prealloc=on"
+			numaMemParam := "node,memdev=" + dimmName
+
+			config.qemuParams = append(config.qemuParams, "-object")
+			config.qemuParams = append(config.qemuParams, objMemParam)
+
+			config.qemuParams = append(config.qemuParams, "-numa")
+			config.qemuParams = append(config.qemuParams, numaMemParam)
+		} else if memPrealloc {
+			dimmName := "dimm1"
+			objMemParam := "memory-backend-ram,id=" + dimmName + ",size=" + config.Memory.Size + ",prealloc=on"
+			deviceMemParam := "pc-dimm,id=" + dimmName + ",memdev=" + dimmName
+
+			config.qemuParams = append(config.qemuParams, "-object")
+			config.qemuParams = append(config.qemuParams, objMemParam)
+
+			config.qemuParams = append(config.qemuParams, "-device")
+			config.qemuParams = append(config.qemuParams, deviceMemParam)
+		}
 	}
 }
 
@@ -1448,32 +1490,6 @@ func (config *Config) appendKnobs() {
 
 	if config.Knobs.Daemonize == true {
 		config.qemuParams = append(config.qemuParams, "-daemonize")
-	}
-
-	if config.Knobs.HugePages == true {
-		if config.Memory.Size != "" {
-			dimmName := "dimm1"
-			objMemParam := "memory-backend-file,id=" + dimmName + ",size=" + config.Memory.Size + ",mem-path=/dev/hugepages,share=on,prealloc=on"
-			numaMemParam := "node,memdev=" + dimmName
-
-			config.qemuParams = append(config.qemuParams, "-object")
-			config.qemuParams = append(config.qemuParams, objMemParam)
-
-			config.qemuParams = append(config.qemuParams, "-numa")
-			config.qemuParams = append(config.qemuParams, numaMemParam)
-		}
-	} else if config.Knobs.MemPrealloc == true {
-		if config.Memory.Size != "" {
-			dimmName := "dimm1"
-			objMemParam := "memory-backend-ram,id=" + dimmName + ",size=" + config.Memory.Size + ",prealloc=on"
-			deviceMemParam := "pc-dimm,id=" + dimmName + ",memdev=" + dimmName
-
-			config.qemuParams = append(config.qemuParams, "-object")
-			config.qemuParams = append(config.qemuParams, objMemParam)
-
-			config.qemuParams = append(config.qemuParams, "-device")
-			config.qemuParams = append(config.qemuParams, deviceMemParam)
-		}
 	}
 
 	if config.Knobs.Realtime == true {
