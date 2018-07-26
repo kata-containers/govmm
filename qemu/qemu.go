@@ -1648,9 +1648,9 @@ func LaunchQemu(config Config, logger QMPLog) (string, error) {
 //
 // params is a slice of options to pass to qemu-system-x86_64 and fds is a
 // list of open file descriptors that are to be passed to the spawned qemu
-// process.  The attrs parameter can be used to control aspects of the
-// newly created qemu process, such as the user and group under which it
-// runs.  It may be nil.
+// process, they will be closed once qemu process exists. The attrs parameter
+// can be used to control aspects of the newly created qemu process, such as
+// the user and group under which it runs.  It may be nil.
 //
 // This function writes its log output via logger parameter.
 //
@@ -1687,5 +1687,11 @@ func LaunchCustomQemu(ctx context.Context, path string, params []string, fds []*
 		errStr = stderr.String()
 		logger.Errorf("%s", errStr)
 	}
+
+	for _, f := range fds {
+		logger.Infof("Closing file %v\n", f.Name())
+		f.Close()
+	}
+
 	return errStr, err
 }
