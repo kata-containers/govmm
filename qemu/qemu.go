@@ -1285,8 +1285,8 @@ type Config struct {
 	// Incoming controls migration source preparation
 	Incoming Incoming
 
-	// fds is a list of open file descriptors to be passed to the spawned qemu process
-	fds []*os.File
+	// FDs is a list of open file descriptors to be passed to the spawned qemu process
+	FDs []*os.File
 
 	IOThreads []IOThread
 
@@ -1298,9 +1298,9 @@ type Config struct {
 func (config *Config) appendFDs(fds []*os.File) []int {
 	var fdInts []int
 
-	oldLen := len(config.fds)
+	oldLen := len(config.FDs)
 
-	config.fds = append(config.fds, fds...)
+	config.FDs = append(config.FDs, fds...)
 
 	// The magic 3 offset comes from https://golang.org/src/os/exec/exec.go:
 	//     ExtraFiles specifies additional open files to be inherited by the
@@ -1635,7 +1635,7 @@ func LaunchQemu(config Config, logger QMPLog) (string, error) {
 	}
 
 	return LaunchCustomQemu(config.Ctx, config.Path, config.qemuParams,
-		config.fds, nil, logger)
+		config.FDs, nil, logger)
 }
 
 // LaunchCustomQemu can be used to launch a new qemu instance.
