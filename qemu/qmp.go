@@ -1,4 +1,5 @@
 /*
+// Copyright (c) 2018 Yash Jain
 // Copyright (c) 2016 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -910,7 +911,7 @@ func (q *QMP) ExecutePCIDeviceAdd(ctx context.Context, blockdevID, devID, driver
 func (q *QMP) ExecuteVFIODeviceAdd(ctx context.Context, devID, bdf string) error {
 	args := map[string]interface{}{
 		"id":     devID,
-		"driver": "vfio-pci",
+		"driver": Vfio,
 		"host":   bdf,
 	}
 	return q.executeCommand(ctx, "device_add", args, nil)
@@ -924,10 +925,11 @@ func (q *QMP) ExecuteVFIODeviceAdd(ctx context.Context, devID, bdf string) error
 func (q *QMP) ExecutePCIVFIODeviceAdd(ctx context.Context, devID, bdf, addr, bus string) error {
 	args := map[string]interface{}{
 		"id":     devID,
-		"driver": "vfio-pci",
+		"driver": Vfio,
 		"host":   bdf,
 		"addr":   addr,
 	}
+
 	if bus != "" {
 		args["bus"] = bus
 	}
@@ -942,10 +944,11 @@ func (q *QMP) ExecutePCIVFIODeviceAdd(ctx context.Context, devID, bdf, addr, bus
 func (q *QMP) ExecutePCIVFIOMediatedDeviceAdd(ctx context.Context, devID, sysfsdev, addr, bus string) error {
 	args := map[string]interface{}{
 		"id":       devID,
-		"driver":   "vfio-pci",
+		"driver":   Vfio,
 		"sysfsdev": sysfsdev,
 		"addr":     addr,
 	}
+
 	if bus != "" {
 		args["bus"] = bus
 	}

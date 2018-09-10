@@ -1,4 +1,5 @@
 /*
+// Copyright (c) 2018 Yash Jain
 // Copyright (c) 2016 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,35 +58,6 @@ type Device interface {
 
 // DeviceDriver is the device driver string.
 type DeviceDriver string
-
-const (
-	// NVDIMM is the Non Volatile DIMM device driver.
-	NVDIMM DeviceDriver = "nvdimm"
-
-	// Virtio9P is the 9pfs device driver.
-	Virtio9P DeviceDriver = "virtio-9p-pci"
-
-	// VirtioNet is the virt-io networking device driver.
-	VirtioNet DeviceDriver = "virtio-net"
-
-	// VirtioNetPCI is the virt-io pci networking device driver.
-	VirtioNetPCI DeviceDriver = "virtio-net-pci"
-
-	// VirtioSerial is the serial device driver.
-	VirtioSerial DeviceDriver = "virtio-serial-pci"
-
-	// VirtioBlock is the block device driver.
-	VirtioBlock DeviceDriver = "virtio-blk"
-
-	// Console is the console device driver.
-	Console DeviceDriver = "virtconsole"
-
-	// VirtioSerialPort is the serial port device driver.
-	VirtioSerialPort DeviceDriver = "virtserialport"
-
-	// VHostVSockPCI is the vhost vsock pci driver.
-	VHostVSockPCI DeviceDriver = "vhost-vsock-pci"
-)
 
 // ObjectType is a string representing a qemu object type.
 type ObjectType string
@@ -378,27 +350,6 @@ func (n NetDeviceType) QemuNetdevParam() string {
 		return "" // -device vfio-pci (no netdev)
 	case VHOSTUSER:
 		return "vhost-user" // -netdev type=vhost-user (no device)
-	default:
-		return ""
-
-	}
-}
-
-// QemuDeviceParam converts to the QEMU -device parameter notation
-func (n NetDeviceType) QemuDeviceParam() string {
-	switch n {
-	case TAP:
-		return "virtio-net-pci"
-	case MACVTAP:
-		return "virtio-net-pci"
-	case IPVTAP:
-		return "virtio-net-pci"
-	case VETHTAP:
-		return "virtio-net-pci" // -netdev type=tap -device virtio-net-pci
-	case VFIO:
-		return "vfio-pci" // -device vfio-pci (no netdev)
-	case VHOSTUSER:
-		return "" // -netdev type=vhost-user (no device)
 	default:
 		return ""
 
@@ -714,15 +665,6 @@ func (blkdev BlockDevice) QemuParams(config *Config) []string {
 // VhostUserDeviceType is a qemu vhost-user device type.
 type VhostUserDeviceType string
 
-const (
-	//VhostUserSCSI represents a SCSI vhostuser device type
-	VhostUserSCSI = "vhost-user-scsi-pci"
-	//VhostUserNet represents a net vhostuser device type
-	VhostUserNet = "virtio-net-pci"
-	//VhostUserBlk represents a block vhostuser device type
-	VhostUserBlk = "vhost-user-blk-pci"
-)
-
 // VhostUserDevice represents a qemu vhost-user device meant to be passed
 // in to the guest
 type VhostUserDevice struct {
@@ -730,7 +672,31 @@ type VhostUserDevice struct {
 	CharDevID     string
 	TypeDevID     string //variable QEMU parameter based on value of VhostUserType
 	Address       string //used for MAC address in net case
-	VhostUserType VhostUserDeviceType
+	VhostUserType string
+	vhostTest     VhostUserDeviceType
+}
+
+// QemuParams returns the qemu parameters built out of the VSOCK device.
+func (vsock VSOCKDevice) QemuParams(config *Config) []string {
+	var deviceParams []string
+	var qemuParams []string
+
+	deviceParams = append(deviceParams, fmt.Sprintf("%s", VhostVSOCK))
+
+	if vsock.DisableModern {
+		deviceParams = append(deviceParams, ",disable-modern=true")
+	}
+	if vsock.VHostFD != nil {
+		qemuFDs := config.appendFDs([]*os.File{vsock.VHostFD})
+		deviceParams = append(deviceParams, fmt.Sprintf(",vhostfd=%d", qemuFDs[0]))
+	}
+	deviceParams = append(deviceParams, fmt.Sprintf(",id=%s", vsock.ID))
+	deviceParams = append(deviceParams, fmt.Sprintf(",%s=%d", VSOCKGuestCID, vsock.ContextID))
+
+	qemuParams = append(qemuParams, "-device")
+	qemuParams = append(qemuParams, strings.Join(deviceParams, ""))
+
+	return qemuParams
 }
 
 // Valid returns true if there is a valid structure defined for VhostUserDevice
@@ -784,10 +750,14 @@ func (vhostuserDev VhostUserDevice) QemuParams(config *Config) []string {
 		devParams = append(devParams, fmt.Sprintf("id=%s", vhostuserDev.TypeDevID))
 		devParams = append(devParams, fmt.Sprintf("chardev=%s", vhostuserDev.CharDevID))
 	case VhostUserBlk:
-		devParams = append(devParams, VhostUserBlk)
-		devParams = append(devParams, "logical_block_size=4096")
-		devParams = append(devParams, "size=512M")
-		devParams = append(devParams, fmt.Sprintf("chardev=%s", vhostuserDev.CharDevID))
+		if (VhostUserBlk) != "" {
+			devParams = append(devParams, VhostUserBlk)
+			devParams = append(devParams, "logical_block_size=4096")
+			devParams = append(devParams, "size=512M")
+			devParams = append(devParams, fmt.Sprintf("chardev=%s", vhostuserDev.CharDevID))
+		} else {
+			return nil
+		}
 	default:
 		return nil
 	}
@@ -824,8 +794,9 @@ func (vfioDev VFIODevice) Valid() bool {
 // QemuParams returns the qemu parameters built out of this vfio device.
 func (vfioDev VFIODevice) QemuParams(config *Config) []string {
 	var qemuParams []string
+	var deviceParam string
 
-	deviceParam := fmt.Sprintf("vfio-pci,host=%s", vfioDev.BDF)
+	deviceParam = fmt.Sprintf("%s,host=%s", Vfio, vfioDev.BDF)
 	qemuParams = append(qemuParams, "-device")
 	qemuParams = append(qemuParams, deviceParam)
 
@@ -863,7 +834,7 @@ func (scsiCon SCSIController) QemuParams(config *Config) []string {
 	var qemuParams []string
 	var devParams []string
 
-	devParams = append(devParams, fmt.Sprintf("virtio-scsi-pci,id=%s", scsiCon.ID))
+	devParams = append(devParams, fmt.Sprintf("%s,id=%s", VirtioSCSI, scsiCon.ID))
 	if scsiCon.Bus != "" {
 		devParams = append(devParams, fmt.Sprintf("bus=%s", scsiCon.Bus))
 	}
@@ -979,9 +950,6 @@ const (
 )
 
 const (
-	// VhostVSOCKPCI is the VSOCK vhost device type.
-	VhostVSOCKPCI = "vhost-vsock-pci"
-
 	// VSOCKGuestCID is the VSOCK guest CID parameter.
 	VSOCKGuestCID = "guest-cid"
 )
@@ -993,28 +961,6 @@ func (vsock VSOCKDevice) Valid() bool {
 	}
 
 	return true
-}
-
-// QemuParams returns the qemu parameters built out of the VSOCK device.
-func (vsock VSOCKDevice) QemuParams(config *Config) []string {
-	var deviceParams []string
-	var qemuParams []string
-
-	deviceParams = append(deviceParams, fmt.Sprintf("%s", VhostVSOCKPCI))
-	if vsock.DisableModern {
-		deviceParams = append(deviceParams, ",disable-modern=true")
-	}
-	if vsock.VHostFD != nil {
-		qemuFDs := config.appendFDs([]*os.File{vsock.VHostFD})
-		deviceParams = append(deviceParams, fmt.Sprintf(",vhostfd=%d", qemuFDs[0]))
-	}
-	deviceParams = append(deviceParams, fmt.Sprintf(",id=%s", vsock.ID))
-	deviceParams = append(deviceParams, fmt.Sprintf(",%s=%d", VSOCKGuestCID, vsock.ContextID))
-
-	qemuParams = append(qemuParams, "-device")
-	qemuParams = append(qemuParams, strings.Join(deviceParams, ""))
-
-	return qemuParams
 }
 
 // RTCBaseType is the qemu RTC base time type.
