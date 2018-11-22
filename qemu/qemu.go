@@ -1922,6 +1922,14 @@ func LaunchCustomQemu(ctx context.Context, path string, params []string, fds []*
 
 	err := cmd.Run()
 	if err != nil {
+		// Some programs may have their own children reapers which has reaped the
+		// qemu's process before cmd.Wait to reap it. For this case, the cmd.Run/cmd.Wait
+		// will get an error contains substring of "no child processes", thus it's needed
+		// to ignore this error and deal it as success.
+		if strings.Contains(err.Error(), "no child processes") {
+			return "", nil
+		}
+
 		logger.Errorf("Unable to launch %s: %v", path, err)
 		errStr = stderr.String()
 		logger.Errorf("%s", errStr)
