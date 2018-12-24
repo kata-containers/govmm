@@ -300,7 +300,11 @@ func (q *QMP) processQMPEvent(cmdQueue *list.List, name interface{}, data interf
 			}
 		}
 
-		q.cfg.EventCh <- ev
+		select {
+		case q.cfg.EventCh <- ev:
+		default:
+			q.cfg.Logger.Warningf("The event channel buffer is full, ignore the event: %v", ev)
+		}
 	}
 }
 
