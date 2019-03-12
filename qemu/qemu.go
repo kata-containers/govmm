@@ -269,7 +269,7 @@ func (fsdev FSDevice) QemuParams(config *Config) []string {
 	}
 	deviceParams = append(deviceParams, fmt.Sprintf(",fsdev=%s", fsdev.ID))
 	deviceParams = append(deviceParams, fmt.Sprintf(",mount_tag=%s", fsdev.MountTag))
-	if isVirtioPCI[fsdev.Driver] {
+	if isVirtioPCI[fsdev.Driver] && fsdev.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", fsdev.ROMFile))
 	}
 
@@ -361,7 +361,7 @@ func (cdev CharDevice) QemuParams(config *Config) []string {
 	if cdev.Name != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf(",name=%s", cdev.Name))
 	}
-	if isVirtioPCI[cdev.Driver] {
+	if isVirtioPCI[cdev.Driver] && cdev.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", cdev.ROMFile))
 	}
 
@@ -519,7 +519,7 @@ func (netdev NetDevice) QemuDeviceParams(config *Config) []string {
 		deviceParams = append(deviceParams, netdev.mqParameter())
 	}
 
-	if isVirtioPCI[netdev.Driver] {
+	if isVirtioPCI[netdev.Driver] && netdev.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", netdev.ROMFile))
 	}
 
@@ -635,7 +635,7 @@ func (dev SerialDevice) QemuParams(config *Config) []string {
 		deviceParams = append(deviceParams, fmt.Sprintf(",%s", s))
 	}
 	deviceParams = append(deviceParams, fmt.Sprintf(",id=%s", dev.ID))
-	if isVirtioPCI[dev.Driver] {
+	if isVirtioPCI[dev.Driver] && dev.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", dev.ROMFile))
 	}
 
@@ -721,7 +721,7 @@ func (blkdev BlockDevice) QemuParams(config *Config) []string {
 		deviceParams = append(deviceParams, ",config-wce=off")
 	}
 
-	if isVirtioPCI[blkdev.Driver] {
+	if isVirtioPCI[blkdev.Driver] && blkdev.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", blkdev.ROMFile))
 	}
 
@@ -832,7 +832,7 @@ func (vhostuserDev VhostUserDevice) QemuParams(config *Config) []string {
 		return nil
 	}
 
-	if isVirtioPCI[driver] {
+	if isVirtioPCI[driver] && vhostuserDev.ROMFile != "" {
 		devParams = append(devParams, fmt.Sprintf("romfile=%s", vhostuserDev.ROMFile))
 	}
 
@@ -872,7 +872,7 @@ func (vfioDev VFIODevice) QemuParams(config *Config) []string {
 	driver := Vfio
 
 	deviceParams = append(deviceParams, fmt.Sprintf("%s,host=%s", driver, vfioDev.BDF))
-	if isVirtioPCI[driver] {
+	if isVirtioPCI[driver] && vfioDev.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", vfioDev.ROMFile))
 	}
 
@@ -926,7 +926,7 @@ func (scsiCon SCSIController) QemuParams(config *Config) []string {
 	if scsiCon.IOThread != "" {
 		devParams = append(devParams, fmt.Sprintf("iothread=%s", scsiCon.IOThread))
 	}
-	if isVirtioPCI[driver] {
+	if isVirtioPCI[driver] && scsiCon.ROMFile != "" {
 		devParams = append(devParams, fmt.Sprintf("romfile=%s", scsiCon.ROMFile))
 	}
 
@@ -1014,7 +1014,7 @@ func (bridgeDev BridgeDevice) QemuParams(config *Config) []string {
 		}
 	}
 
-	if isVirtioPCI[driver] {
+	if isVirtioPCI[driver] && bridgeDev.ROMFile != "" {
 		deviceParam = append(deviceParam, fmt.Sprintf(",romfile=%s", bridgeDev.ROMFile))
 	}
 
@@ -1079,7 +1079,7 @@ func (vsock VSOCKDevice) QemuParams(config *Config) []string {
 	deviceParams = append(deviceParams, fmt.Sprintf(",id=%s", vsock.ID))
 	deviceParams = append(deviceParams, fmt.Sprintf(",%s=%d", VSOCKGuestCID, vsock.ContextID))
 
-	if isVirtioPCI[driver] {
+	if isVirtioPCI[driver] && vsock.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", vsock.ROMFile))
 	}
 
@@ -1124,7 +1124,7 @@ func (v RngDevice) QemuParams(_ *Config) []string {
 	deviceParams = append(deviceParams, string(driver))
 	deviceParams = append(deviceParams, "rng="+v.ID)
 
-	if isVirtioPCI[driver] {
+	if isVirtioPCI[driver] && v.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf("romfile=%s", v.ROMFile))
 	}
 
@@ -1171,7 +1171,7 @@ func (b BalloonDevice) QemuParams(_ *Config) []string {
 		deviceParams = append(deviceParams, "id="+b.ID)
 	}
 
-	if isVirtioPCI[driver] {
+	if isVirtioPCI[driver] && b.ROMFile != "" {
 		deviceParams = append(deviceParams, fmt.Sprintf("romfile=%s", b.ROMFile))
 	}
 
