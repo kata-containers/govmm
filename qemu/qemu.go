@@ -1427,6 +1427,9 @@ func (vhostuserDev VhostUserDevice) QemuFSParams(config *Config) []string {
 		devParams = append(devParams, "versiontable=/dev/shm/fuse_shared_versions")
 	}
 	if vhostuserDev.Transport.isVirtioCCW(config) {
+		if config.Knobs.IOMMUPlatform {
+			devParams = append(devParams, "iommu_platform=on")
+		}
 		devParams = append(devParams, fmt.Sprintf("devno=%s", vhostuserDev.DevNo))
 	}
 	if vhostuserDev.Transport.isVirtioPCI(config) && vhostuserDev.ROMFile != "" {
@@ -1737,7 +1740,7 @@ func (scsiCon SCSIController) QemuParams(config *Config) []string {
 
 	if scsiCon.Transport.isVirtioCCW(config) {
 		if config.Knobs.IOMMUPlatform {
-			devParams = append(devParams, ",iommu_platform=on")
+			devParams = append(devParams, "iommu_platform=on")
 		}
 		devParams = append(devParams, fmt.Sprintf("devno=%s", scsiCon.DevNo))
 	}
@@ -1995,7 +1998,7 @@ func (v RngDevice) QemuParams(config *Config) []string {
 
 	if v.Transport.isVirtioCCW(config) {
 		if config.Knobs.IOMMUPlatform {
-			deviceParams = append(deviceParams, ",iommu_platform=on")
+			deviceParams = append(deviceParams, "iommu_platform=on")
 		}
 		deviceParams = append(deviceParams, fmt.Sprintf("devno=%s", v.DevNo))
 	}
