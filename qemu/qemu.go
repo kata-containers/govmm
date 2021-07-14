@@ -2465,7 +2465,7 @@ type Config struct {
 	SMP SMP
 
 	// GlobalParam is the -global parameter.
-	GlobalParam string
+	GlobalParam []string
 
 	// Knobs is a set of qemu boolean settings.
 	Knobs Knobs
@@ -2660,9 +2660,9 @@ func (config *Config) appendRTC() {
 }
 
 func (config *Config) appendGlobalParam() {
-	if config.GlobalParam != "" {
+	for _, param := range config.GlobalParam {
 		config.qemuParams = append(config.qemuParams, "-global")
-		config.qemuParams = append(config.qemuParams, config.GlobalParam)
+		config.qemuParams = append(config.qemuParams, param)
 	}
 }
 
